@@ -13,6 +13,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 function checkUrl(url) {
+  // Skip checking if the URL is for educational content (data:text/html)
+  if (url.startsWith('data:text/html')) {
+    return;
+  }
   fetch('http://localhost:6500/api/predict', {
     method: 'POST',
     headers: {
@@ -81,18 +85,123 @@ function saveMaliciousUrl(url) {
 }
 
 function showMaliciousEducationContent(url) {
+  let customContent = '';
+  let maliciousIntent = '';
+
+  // Analyze the URL to determine the type of threat
+  if (url.includes('login')) {
+    customContent = `
+      <li>This site appears to mimic a login page. Be cautious when entering your credentials.</li>
+    `;
+    maliciousIntent = `
+      <ul>
+        <li><strong>Credential Phishing:</strong> The attacker is attempting to steal your username and password by creating a fake login page that looks like a legitimate site.</li>
+        <li><strong>Account Compromise:</strong> If successful, the attacker could gain unauthorized access to your accounts, leading to potential financial loss or identity theft.</li>
+      </ul>
+    `;
+  } else if (url.includes('bank')) {
+    customContent = `
+      <li>This site may be pretending to be a financial institution. Never enter sensitive financial information without verifying the website's legitimacy.</li>
+    `;
+    maliciousIntent = `
+      <ul>
+        <li><strong>Banking Fraud:</strong> The attacker is trying to obtain your banking credentials or other financial information by impersonating a bank.</li>
+        <li><strong>Money Theft:</strong> If you enter your information, the attacker could transfer money from your account or use your details for fraudulent transactions.</li>
+      </ul>
+    `;
+  } else if (url.includes('offer') || url.includes('prize')) {
+    customContent = `
+      <li>This site may be using fake offers or prizes to trick you into providing personal information.</li>
+    `;
+    maliciousIntent = `
+      <ul>
+        <li><strong>Scam Offers:</strong> The attacker lures you with too-good-to-be-true deals or prizes to collect your personal and financial information.</li>
+        <li><strong>Data Theft:</strong> The stolen data could be used for identity theft, spam, or even sold on the dark web.</li>
+      </ul>
+    `;
+  } else {
+    customContent = `
+      <li>This site has been flagged as malicious. Avoid interacting with it and do not enter any personal information.</li>
+    `;
+    maliciousIntent = `
+      <ul>
+        <li><strong>Malware Distribution:</strong> The attacker might use this site to install malware on your device, which could steal your data, encrypt your files for ransom, or hijack your system.</li>
+        <li><strong>Phishing or Fraud:</strong> The site could be a part of a broader phishing or scam network aimed at stealing your personal information.</li>
+      </ul>
+    `;
+  }
+
   const popupHtml = `
-    <h2>Phishing Alert</h2>
-    <p>The URL <strong>${url}</strong> has been flagged as potentially phishing. Learn more about phishing attacks and how to protect yourself:</p>
-    <ul>
-      <li>Phishing is a type of social engineering attack where attackers deceive individuals into providing sensitive information.</li>
-      <li>Always verify the source of emails and websites before entering personal information.</li>
-      <li>Look for signs of phishing such as poor grammar, urgent language, and suspicious links.</li>
-      <li>Attackers on the site you're trying to visit might trick you into installing software or revealing things like your password, phone, or credit card number.</li>
-      <li>Use two-factor authentication whenever possible to add an extra layer of security.</li>
-      <li>Keep your software and antivirus updated to protect against known vulnerabilities.</li>
-      <li>Learn more about common phishing techniques and how to avoid them at.</li>
-    </ul>
+    <html>
+    <head>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          background-color: #faf2f2;
+          margin: 0;
+          padding: 0;
+          color: #333;
+        }
+        h2 {
+          color: #a60505;
+          font-size: 24px;
+          margin-bottom: 15px;
+        }
+        p {
+          font-size: 16px;
+          color: #555;
+          line-height: 1.6;
+          margin-bottom: 20px;
+        }
+        ul {
+          list-style: disc;
+          padding-left: 20px;
+          margin-bottom: 20px;
+        }
+        ul li {
+          font-size: 16px;
+          margin-bottom: 10px;
+          color: #555;
+        }
+        strong {
+          color: #a60505;
+          font-weight: bold;
+        }
+        a {
+          color: #007bff;
+          text-decoration: none;
+        }
+        a:hover {
+          text-decoration: underline;
+        }
+        button {
+          padding: 10px 20px;
+          font-size: 16px;
+          background-color: #007bff;
+          color: #fff;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          margin-top: 20px;
+        }
+        button:hover {
+          background-color: #0056b3;
+        }
+      </style>
+    </head>
+    <body>
+      <h2>Phishing Alert</h2>
+      <p>The URL <strong>${url}</strong> has been flagged as potentially phishing. Learn more about phishing attacks and how to protect yourself:</p>
+      <ul>
+        ${customContent}
+        <li>Always verify the source of emails and websites before entering personal information.</li>
+        <li>Use two-factor authentication whenever possible to add an extra layer of security.</li>
+        <li>Keep your software and antivirus updated to protect against known vulnerabilities.</li>
+      </ul>
+      <h3>What is the goal of this malicious URL?</h3>
+      ${maliciousIntent}
+    </body>
+    </html>
   `;
 
   chrome.windows.create({
@@ -102,20 +211,81 @@ function showMaliciousEducationContent(url) {
     height: 400
   });
 }
+
 
 function showSafeBrowsingTips(url) {
   const popupHtml = `
-    <h2>Safe Browsing Tips</h2>
-    <p>The URL <strong>${url}</strong> is detected as safe. However, it's important to stay informed about safe browsing practices:</p>
-    <ul>
-      <li>Always verify the URL and make sure it matches the website you intend to visit.</li>
-      <li>Be cautious of unsolicited emails or messages asking for personal information.</li>
-      <li>Look for HTTPS in the URL to ensure a secure connection.</li>
-      <li>Be wary of pop-ups or ads that seem too good to be true.</li>
-      <li>Use a reputable antivirus program and keep it updated.</li>
-      <li>Regularly update your browser and other software to protect against vulnerabilities.</li>
-      <li>Learn more about safe browsing practices at.</li>
-    </ul>
+    <html>
+    <head>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          background-color: #faf2f2;
+          margin: 0;
+          padding: 0;
+          color: #333;
+        }
+        h2 {
+          color: #4fba43;
+          font-size: 24px;
+          margin-bottom: 15px;
+        }
+        p {
+          font-size: 16px;
+          color: #555;
+          line-height: 1.6;
+          margin-bottom: 20px;
+        }
+        ul {
+          list-style: disc;
+          padding-left: 20px;
+          margin-bottom: 20px;
+        }
+        ul li {
+          font-size: 16px;
+          margin-bottom: 10px;
+          color: #555;
+        }
+        strong {
+          color: #4fba43;
+          font-weight: bold;
+        }
+        a {
+          color: #007bff;
+          text-decoration: none;
+        }
+        a:hover {
+          text-decoration: underline;
+        }
+        button {
+          padding: 10px 20px;
+          font-size: 16px;
+          background-color: #007bff;
+          color: #fff;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          margin-top: 20px;
+        }
+        button:hover {
+          background-color: #0056b3;
+        }
+      </style>
+    </head>
+    <body>
+      <h2>Safe Browsing Tips</h2>
+      <p>The URL <strong>${url}</strong> is detected as safe. However, it's important to stay informed about safe browsing practices:</p>
+      <ul>
+        <li>Always verify the URL and make sure it matches the website you intend to visit.</li>
+        <li>Be cautious of unsolicited emails or messages asking for personal information.</li>
+        <li>Look for HTTPS in the URL to ensure a secure connection.</li>
+        <li>Be wary of pop-ups or ads that seem too good to be true.</li>
+        <li>Use a reputable antivirus program and keep it updated.</li>
+        <li>Regularly update your browser and other software to protect against vulnerabilities.</li>
+        <li>Learn more about safe browsing practices.</li>
+      </ul>
+    </body>
+    </html>
   `;
 
   chrome.windows.create({
@@ -125,7 +295,6 @@ function showSafeBrowsingTips(url) {
     height: 400
   });
 }
-
 
 function sendAnalytics(url, prediction) {
   const event = {
@@ -152,8 +321,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-
-// Function to track retraining event
 function retrainModel() {
   fetch('http://localhost:6500/api/retrain', {
       method: 'POST',
@@ -173,11 +340,3 @@ function retrainModel() {
       sendAnalytics('retrain_model', 'error'); // Track the retrain error event
   });
 }
-
-// Adding a listener for the retrainModel message
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === 'retrainModel') {
-      retrainModel();
-      sendResponse({status: 'retraining started'});
-  }
-});
